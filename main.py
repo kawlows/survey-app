@@ -115,11 +115,13 @@ def thank_you():
 
 @app.get("/responses", response_class=HTMLResponse)
 def list_responses(session: Session = Depends(get_session)):
-    statement = select(SurveyResponse)
+    statement = select(SurveyResponse).order_by(SurveyResponse.id.desc())
     results = session.exec(statement).all()
 
     rows_html = ""
     for r in results:
+        created_at_str = getattr(r, "created_at", None)
+        created_at_str = created_at_str.strftime("%Y-%m-%d %H:%M:%S") if created_at_str else ""
         rows_html += f"""
         <tr>
           <td>{r.id}</td>
@@ -127,14 +129,17 @@ def list_responses(session: Session = Depends(get_session)):
           <td>{r.email}</td>
           <td>{r.rating}</td>
           <td>{r.feedback_text}</td>
+          <td>{created_at_str}</td>
         </tr>
         """
+
+    count = len(results)
 
     return f"""
     <html>
       <head><title>Responses</title></head>
       <body>
-        <h1>Survey Responses</h1>
+        <h1>Survey Responses ({count} total)</h1>
         <table border="1" cellpadding="5" cellspacing="0">
           <tr>
             <th>ID</th>
@@ -142,6 +147,7 @@ def list_responses(session: Session = Depends(get_session)):
             <th>Email</th>
             <th>Rating</th>
             <th>Feedback</th>
+            <th>Submitted At</th>
           </tr>
           {rows_html}
         </table>
