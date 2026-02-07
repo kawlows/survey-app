@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from fastapi import FastAPI, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import SQLModel, Field, Session, create_engine, select
@@ -7,7 +9,7 @@ from sqlmodel import SQLModel, Field, Session, create_engine, select
 
 sqlite_url = "sqlite:///./survey.db"
 connect_args = {"check_same_thread": False}
-engine = create_engine(sqlite_url, echo=True, connect_args=connect_args)
+engine = create_engine(sqlite_url, echo=True, connect_args=connect_args)  # [web:13][web:14][web:23]
 
 
 class SurveyResponse(SQLModel, table=True):
@@ -16,15 +18,16 @@ class SurveyResponse(SQLModel, table=True):
     email: str
     rating: int
     feedback_text: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)  # [web:13][web:95]
 
 
 def create_db_and_tables():
-    SQLModel.metadata.create_all(engine)
+    SQLModel.metadata.create_all(engine)  # [web:13][web:95]
 
 
 def get_session():
     with Session(engine) as session:
-        yield session
+        yield session  # [web:96]
 
 
 # ---------- FastAPI app ----------
@@ -46,6 +49,45 @@ def home():
         <h1>Survey App</h1>
         <p><a href="/survey">Fill out the survey</a></p>
         <p><a href="/responses">View responses</a></p>
+      </body>
+    </html>
+    """
+
+
+@app.get("/survey", response_class=HTMLResponse)
+def get_survey_form():
+    return """
+    <html>
+      <head>
+        <title>Survey Form</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; }
+          label { font-weight: bold; }
+          input, textarea, select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+          button { margin-top: 12px; padding: 8px 16px; }
+        </style>
+      </head>
+      <body>
+        <h1>Survey Form</h1>
+        <form method="post" action="/survey">
+          <label for="name">Name</label>
+          <input id="name" type="text" name="name" placeholder="Your name" required>
+
+          <br><br>
+          <label for="email">Email</label>
+          <input id="email" type="email" name="email" placeholder="you@example.com" required>
+
+          <br><br>
+          <label for="rating">Rating (1-5)</label>
+          <input id="rating" type="number" name="rating" min="1" max="5" required>
+
+          <br><br>
+          <label for="feedback_text">Feedback</label>
+          <textarea id="feedback_text" name="feedback_text" rows="4" placeholder="Write your feedback here..." required></textarea>
+
+          <br><br>
+          <button type="submit">Submit</button>
+        </form>
       </body>
     </html>
     """
@@ -74,7 +116,6 @@ def submit_survey(
         errors.append("Feedback must be at least 5 characters long.")
 
     if errors:
-        # Show the same form again with error messages on top
         error_list = "".join(f"<li>{e}</li>" for e in errors)
         return HTMLResponse(
             content=f"""
@@ -88,7 +129,7 @@ def submit_survey(
             </html>
             """,
             status_code=400,
-        )
+        )  # [web:120][web:121][web:127][web:128]
 
     # If everything is OK, save to DB
     response = SurveyResponse(
@@ -99,28 +140,7 @@ def submit_survey(
     )
     session.add(response)
     session.commit()
-    session.refresh(response)
-
-    return RedirectResponse(url="/thank-you", status_code=303)
-
-
-@app.post("/survey")
-def submit_survey(
-    name: str = Form(...),
-    email: str = Form(...),
-    rating: int = Form(...),
-    feedback_text: str = Form(...),
-    session: Session = Depends(get_session),
-):
-    response = SurveyResponse(
-        name=name,
-        email=email,
-        rating=rating,
-        feedback_text=feedback_text,
-    )
-    session.add(response)
-    session.commit()
-    session.refresh(response)
+    session.refresh(response)  # [web:13][web:96]
 
     return RedirectResponse(url="/thank-you", status_code=303)
 
@@ -141,11 +161,13 @@ def thank_you():
 
 @app.get("/responses", response_class=HTMLResponse)
 def list_responses(session: Session = Depends(get_session)):
-    statement = select(SurveyResponse)
-    results = session.exec(statement).all()
+    statement = select(SurveyResponse).order_by(SurveyResponse.id.desc())
+    results = session.exec(statement).all()  # [web:13][web:23][web:96]
 
     rows_html = ""
     for r in results:
+        created_at_str = getattr(r, "created_at", None)
+        created_at_str = created_at_str.strftime("%Y-%m-%d %H:%M:%S") if created_at_str else ""
         rows_html += f"""
         <tr>
           <td>{r.id}</td>
@@ -153,14 +175,17 @@ def list_responses(session: Session = Depends(get_session)):
           <td>{r.email}</td>
           <td>{r.rating}</td>
           <td>{r.feedback_text}</td>
+          <td>{created_at_str}</td>
         </tr>
         """
+
+    count = len(results)
 
     return f"""
     <html>
       <head><title>Responses</title></head>
       <body>
-        <h1>Survey Responses</h1>
+        <h1>Survey Responses ({count} total)</h1>
         <table border="1" cellpadding="5" cellspacing="0">
           <tr>
             <th>ID</th>
@@ -168,6 +193,7 @@ def list_responses(session: Session = Depends(get_session)):
             <th>Email</th>
             <th>Rating</th>
             <th>Feedback</th>
+            <th>Submitted At</th>
           </tr>
           {rows_html}
         </table>
