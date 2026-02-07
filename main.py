@@ -55,22 +55,34 @@ def home():
 def get_survey_form():
     return """
     <html>
-      <head><title>Survey Form</title></head>
+      <head>
+        <title>Survey Form</title>
+        <style>
+          body { font-family: Arial, sans-serif; max-width: 600px; margin: 40px auto; }
+          label { font-weight: bold; }
+          input, textarea, select { width: 100%; padding: 8px; margin-top: 4px; box-sizing: border-box; }
+          button { margin-top: 12px; padding: 8px 16px; }
+        </style>
+      </head>
       <body>
         <h1>Survey Form</h1>
         <form method="post" action="/survey">
-          <label>Name:</label><br>
-          <input type="text" name="name" required><br><br>
+          <label for="name">Name</label>
+          <input id="name" type="text" name="name" placeholder="Your name" required>
 
-          <label>Email:</label><br>
-          <input type="email" name="email" required><br><br>
+          <br><br>
+          <label for="email">Email</label>
+          <input id="email" type="email" name="email" placeholder="you@example.com" required>
 
-          <label>Rating (1-5):</label><br>
-          <input type="number" name="rating" min="1" max="5" required><br><br>
+          <br><br>
+          <label for="rating">Rating (1-5)</label>
+          <input id="rating" type="number" name="rating" min="1" max="5" required>
 
-          <label>Feedback:</label><br>
-          <textarea name="feedback_text" rows="4" cols="40" required></textarea><br><br>
+          <br><br>
+          <label for="feedback_text">Feedback</label>
+          <textarea id="feedback_text" name="feedback_text" rows="4" placeholder="Write your feedback here..." required></textarea>
 
+          <br><br>
           <button type="submit">Submit</button>
         </form>
       </body>
