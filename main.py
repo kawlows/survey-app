@@ -51,31 +51,41 @@ def home():
     """
 
 
-@app.get("/survey", response_class=HTMLResponse)
-def get_survey_form():
-    return """
-    <html>
-      <head><title>Survey Form</title></head>
-      <body>
-        <h1>Survey Form</h1>
-        <form method="post" action="/survey">
-          <label>Name:</label><br>
-          <input type="text" name="name" required><br><br>
+@app.post("/survey", response_class=HTMLResponse)
+def submit_survey(
+    name: str = Form(...),
+    email: str = Form(...),
+    rating: int = Form(...),
+    feedback_text: str = Form(...),
+    session: Session = Depends(get_session),
+):
+    # Basic validation for rating range
+    if rating < 1 or rating > 5:
+        return HTMLResponse(
+            content="""
+            <html>
+              <head><title>Survey Error</title></head>
+              <body>
+                <h1>Invalid rating</h1>
+                <p>Rating must be between 1 and 5.</p>
+                <p><a href="/survey">Go back to the survey</a></p>
+              </body>
+            </html>
+            """,
+            status_code=400,
+        )
 
-          <label>Email:</label><br>
-          <input type="email" name="email" required><br><br>
+    response = SurveyResponse(
+        name=name,
+        email=email,
+        rating=rating,
+        feedback_text=feedback_text,
+    )
+    session.add(response)
+    session.commit()
+    session.refresh(response)
 
-          <label>Rating (1-5):</label><br>
-          <input type="number" name="rating" min="1" max="5" required><br><br>
-
-          <label>Feedback:</label><br>
-          <textarea name="feedback_text" rows="4" cols="40" required></textarea><br><br>
-
-          <button type="submit">Submit</button>
-        </form>
-      </body>
-    </html>
-    """
+    return RedirectResponse(url="/thank-you", status_code=303)
 
 
 @app.post("/survey")
