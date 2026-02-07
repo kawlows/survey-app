@@ -1,3 +1,4 @@
+from datetime import datetime
 from fastapi import FastAPI, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlmodel import SQLModel, Field, Session, create_engine, select
@@ -16,6 +17,7 @@ class SurveyResponse(SQLModel, table=True):
     email: str
     rating: int
     feedback_text: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 def create_db_and_tables():
